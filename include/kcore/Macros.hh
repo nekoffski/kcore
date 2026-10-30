@@ -1,0 +1,10 @@
+#pragma once
+
+#define KCORE_CONCATENATE_IMPL(s1, s2) s1##s2
+#define KCORE_CONCATENATE(s1, s2) KCORE_CONCATENATE_IMPL(s1, s2)
+
+#ifdef __COUNTER__
+#define KCORE_ANONYMOUS_VAR(str) KCORE_CONCATENATE(str, __COUNTER__)
+#else
+#define KCORE_ANONYMOUS_VAR(str) KCORE_CONCATENATE(str, __LINE__)
+#endif

@@ -1,0 +1,58 @@
+#include <functional>
+#include <kcore/Log.hh>
+#include <kcore/Profiler.hh>
+#include <kcore/runtime/Thread.hh>
+
+namespace kc {
+
+Thread::Thread(const Str& ident) : m_ident(ident) {}
+
+Thread::~Thread() { join(); }
+
+Thread::Thread(Thread&& other) noexcept
+    : m_ident(std::move(other.m_ident)), m_thread(std::move(other.m_thread)) {}
+
+Thread& Thread::operator=(Thread&& other) noexcept {
+    if (this != &other) {
+        join();
+        m_ident = std::move(other.m_ident);
+        m_thread = std::move(other.m_thread);
+    }
+    return *this;
+}
+
+void Thread::join() {
+    if (m_thread.joinable()) {
+        m_thread.join();
+    }
+}
+
+void Thread::join(std::span<Thread*> threads) {
+    for (auto& thread : threads) {
+        thread->join();
+    }
+}
+
+void Thread::sleepFor(std::chrono::milliseconds duration) {
+    std::this_thread::sleep_for(duration);
+}
+
+void Thread::start() {
+    m_thread = std::thread([&] { go(); });
+}
+
+void Thread::go() {
+    KCORE_PROFILE_REGISTER_THREAD();
+    log::info("{} - thread starting", m_ident);
+
+    try {
+        run();
+    } catch (const std::exception& e) {
+        log::panic("{} - standard exception in thread: {}", m_ident, e.what());
+    } catch (...) {
+        log::panic("{} - unknown exception in thread", m_ident);
+    }
+    log::info("{} - thread exiting", m_ident);
+}
+
+}  // namespace kc
