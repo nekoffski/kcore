@@ -11,10 +11,6 @@ class ErrorCategory final : public std::error_category {
         switch (static_cast<ErrorCode>(value)) {
             case ErrorCode::noError:
                 return "No error";
-            case ErrorCode::internalError:
-                return "Internal error";
-            case ErrorCode::queueError:
-                return "Queue error";
             case ErrorCode::queueClosed:
                 return "Queue closed";
             case ErrorCode::timeout:
@@ -29,18 +25,6 @@ class ErrorCategory final : public std::error_category {
                 return "JSON parsing error";
             case ErrorCode::fileNotFound:
                 return "File not found";
-            case ErrorCode::eof:
-                return "End of file";
-            case ErrorCode::connectionFailure:
-                return "Connection failure";
-            case ErrorCode::transientNetworkError:
-                return "Transient network error";
-            case ErrorCode::bufferOverflow:
-                return "Buffer overflow";
-            case ErrorCode::serializationFailure:
-                return "Serialization failure";
-            case ErrorCode::notImplemented:
-                return "Not implemented";
         }
         return "Unknown kcore error";
     }

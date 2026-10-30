@@ -6,22 +6,15 @@
 namespace kc {
 
 enum class ErrorCode {
-    noError,
-    internalError,
-    queueError,
-    queueClosed,
-    timeout,
-    invalidConfig,
-    fileSystemError,
-    invalidArgument,
-    jsonParsingError,
-    fileNotFound,
-    eof,
-    connectionFailure,
-    transientNetworkError,
-    bufferOverflow,
-    serializationFailure,
-    notImplemented,
+    // Values are serialized; removing codes must not renumber the others.
+    noError = 0,
+    queueClosed = 3,
+    timeout = 4,
+    invalidConfig = 5,
+    fileSystemError = 6,
+    invalidArgument = 7,
+    jsonParsingError = 8,
+    fileNotFound = 9,
 };
 
 const std::error_category& errorCategory() noexcept;
