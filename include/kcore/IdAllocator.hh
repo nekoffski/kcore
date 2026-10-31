@@ -4,36 +4,39 @@
 #include <kcore/Concepts.hh>
 #include <kcore/Core.hh>
 #include <mutex>
-#include <typeindex>
-#include <unordered_map>
+#include <vector>
 
 namespace kc {
 
-class IdPool : public NonCopyable, public NonMovable {
+class IdAllocator : public NonCopyable, public NonMovable {
    public:
     u32 acquire();
     void release(u32 id);
 
    private:
-    u32 m_counter{0u};
     std::deque<u32> m_freeIds;
+    std::vector<bool> m_inUse;
     std::mutex m_mutex;
 };
 
-class IdLake : public NonCopyable, public NonMovable {
+class TypeIdAllocator : public NonCopyable, public NonMovable {
    public:
     template <typename T>
     u32 acquire() {
-        return s_pools[typeid(T)].acquire();
+        return allocator<T>().acquire();
     }
 
     template <typename T>
     void release(u32 id) {
-        s_pools[typeid(T)].release(id);
+        allocator<T>().release(id);
     }
 
    private:
-    inline static std::unordered_map<std::type_index, IdPool> s_pools;
+    template <typename T>
+    static IdAllocator& allocator() {
+        static IdAllocator value;
+        return value;
+    }
 };
 
 }  // namespace kc

@@ -1,7 +1,18 @@
 #include <kcore/Concepts.hh>
 #include <kcore/Core.hh>
+#include <stdexcept>
 
 #include "TestSupport.hh"
+
+struct ThrowingHashKey {
+    bool operator==(const ThrowingHashKey&) const = default;
+};
+template <>
+struct std::hash<ThrowingHashKey> {
+    std::size_t operator()(const ThrowingHashKey&) const {
+        throw std::runtime_error("hash failure");
+    }
+};
 
 namespace kc::test {
 using namespace testing;
@@ -28,6 +39,24 @@ TEST(Core, NumericLimitsAndValueWrappers) {
     EXPECT_EQ(std::hash<Name>{}(name), std::hash<Str>{}("daily"));
     Tag<Str> tag{"tag"};
     EXPECT_EQ(std::hash<Tag<Str>>{}(tag), std::hash<Str>{}("tag"));
+}
+
+TEST(Core, PreservesUnderlyingExceptions) {
+    static_assert(not std::is_nothrow_invocable_v<
+                  std::hash<Wrapper<ThrowingHashKey>>,
+                  const Wrapper<ThrowingHashKey>&>);
+    EXPECT_THROW(
+        std::hash<Wrapper<ThrowingHashKey>>{}(
+            Wrapper<ThrowingHashKey>{ThrowingHashKey{}}
+        ),
+        std::runtime_error
+    );
+    EXPECT_THROW(
+        std::hash<Tag<ThrowingHashKey>>{}(
+            Tag<ThrowingHashKey>{ThrowingHashKey{}}
+        ),
+        std::runtime_error
+    );
 }
 
 }  // namespace kc::test

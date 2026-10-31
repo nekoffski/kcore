@@ -20,7 +20,7 @@ add_library(kcore STATIC
     src/Error.cpp
     src/ErrorCode.cpp
     src/Handle.cpp
-    src/Id.cpp
+    src/IdAllocator.cpp
     src/Log.cpp
     src/Profiler.cpp
     src/Random.cpp
@@ -28,7 +28,7 @@ add_library(kcore STATIC
     src/io/FileSystem.cpp
     src/runtime/SignalHandler.cpp
     src/runtime/Thread.cpp
-    src/runtime/ThreadPool.cpp
+    # src/runtime/ThreadPool.cpp
     src/serialization/Json.cpp
     src/serialization/Yaml.cpp
 )

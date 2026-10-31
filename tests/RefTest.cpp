@@ -41,4 +41,17 @@ TEST(Ref, DestroysDataOnlyAfterTheLastOwnerAndCanCopyMovedFromReferences) {
     EXPECT_EQ(destructions, 1);
 }
 
+TEST(Ref, DeletesDerivedObjectsThroughBaseOwners) {
+    struct Derived : Ref<int> {
+        explicit Derived(int& count) : Ref(42), count(count) {}
+        ~Derived() override { ++count; }
+        int& count;
+    };
+    int destroyed = 0;
+    {
+        std::unique_ptr<Ref<int>> owner = std::make_unique<Derived>(destroyed);
+    }
+    EXPECT_EQ(destroyed, 1);
+}
+
 }  // namespace kc::test

@@ -19,4 +19,18 @@ TEST(Enum, CombinesAndChecksEnabledFlags) {
     EXPECT_TRUE(checkFlag(flags, Flags::second));
 }
 
+enum class OtherFlags { first = 1 };
+KCORE_BIT_ENUM(OtherFlags)
+template <typename A, typename B>
+concept ComparableFlags = requires(A a, B b) { checkFlag(a, b); };
+static_assert(not ComparableFlags<Flags, OtherFlags>);
+
+TEST(Enum, CompoundAssignmentsReturnTheOriginalLvalue) {
+    auto flags = Flags::first;
+    EXPECT_EQ(&(flags |= Flags::second), &flags);
+    EXPECT_EQ(&(flags &= Flags::first), &flags);
+    (flags |= Flags::second) &= Flags::second;
+    EXPECT_EQ(flags, Flags::second);
+}
+
 }  // namespace kc::test

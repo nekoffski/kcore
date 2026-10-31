@@ -2,7 +2,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <array>
 #include <cerrno>
+#include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -361,40 +363,49 @@ Result<void> FileSystem::writeFile(const Path& path, const Str& content) const {
 }
 
 Result<Str> FileSystem::readFile(const Path& path) const {
-    std::ifstream file(path.str());
-    if (not file.is_open() or isDirectory(path)) {
+    std::unique_ptr<std::FILE, decltype(&std::fclose)> file{
+        std::fopen(path.str().c_str(), "rb"), &std::fclose
+    };
+    if (not file or isDirectory(path)) {
         return Error::unexpected(
             ErrorCode::fileSystemError, "Failed to open file for reading: {}",
             path.str()
         );
     }
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    if (file.bad()) {
-        return Error::unexpected(
-            ErrorCode::fileSystemError, "Failed to read file: {}", path.str()
-        );
+    Str contents;
+    std::array<char, 8192> buffer;
+    for (;;) {
+        const auto count =
+            std::fread(buffer.data(), 1, buffer.size(), file.get());
+        const auto error = errno;
+        contents.append(buffer.data(), count);
+        if (std::ferror(file.get())) {
+            if (error == EINTR) {
+                std::clearerr(file.get());
+                continue;
+            }
+            return Error::unexpected(
+                ErrorCode::fileSystemError, "Failed to read file '{}': {}",
+                path.str(), std::strerror(error)
+            );
+        }
+        if (count < buffer.size()) {
+            break;
+        }
     }
-    return buffer.str();
+    return contents;
 }
 
 Result<std::vector<Str>> FileSystem::readLines(const Path& path) const {
-    std::ifstream file(path.str());
-    if (not file.is_open() or isDirectory(path)) {
-        return Error::unexpected(
-            ErrorCode::fileSystemError, "Failed to open file for reading: {}",
-            path.str()
-        );
+    auto content = readFile(path);
+    if (not content) {
+        return Error::unexpected(content.error());
     }
+    std::istringstream file{std::move(*content)};
     std::vector<Str> lines;
     Str line;
     while (std::getline(file, line)) {
         lines.push_back(line);
-    }
-    if (file.bad()) {
-        return Error::unexpected(
-            ErrorCode::fileSystemError, "Failed to read lines: {}", path.str()
-        );
     }
     return lines;
 }

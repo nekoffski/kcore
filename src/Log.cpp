@@ -4,8 +4,6 @@
 
 namespace kc::log {
 
-static Level currentLogLevel{Level::trace};
-
 const std::map<std::string, Level>& levelMap() {
     static const std::map<std::string, Level> map{
         {"off", Level::off},     {"critical", Level::critical},
@@ -61,11 +59,28 @@ void init(const LoggerOptions& options) {
     setLogLevel(options.level);
 }
 
-Level level() { return currentLogLevel; }
+Level level() {
+    switch (spdlog::get_level()) {
+        case spdlog::level::trace:
+            return Level::trace;
+        case spdlog::level::debug:
+            return Level::debug;
+        case spdlog::level::info:
+            return Level::info;
+        case spdlog::level::warn:
+            return Level::warn;
+        case spdlog::level::err:
+            return Level::error;
+        case spdlog::level::critical:
+            return Level::critical;
+        case spdlog::level::off:
+            return Level::off;
+        default:
+            return Level::info;
+    }
+}
 
 void setLogLevel(Level level) {
-    currentLogLevel = level;
-
     switch (level) {
         case Level::trace:
             spdlog::set_level(spdlog::level::trace);

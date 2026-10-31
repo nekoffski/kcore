@@ -87,4 +87,11 @@ TEST(InterfaceMap, ConstructsAndOwnsRegisteredImplementations) {
     EXPECT_EQ(map.get(2), pointer);
 }
 
+struct UnsafeInterface {
+    virtual int value() = 0;
+};
+template <typename T>
+concept SafeInterface = requires { typename InterfaceMap<int, T>; };
+static_assert(not SafeInterface<UnsafeInterface>);
+
 }  // namespace kc::test

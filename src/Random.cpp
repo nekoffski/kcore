@@ -5,7 +5,10 @@ namespace kc {
 RandomEngine::RandomEngine()
     : m_engine(std::random_device{}()), m_uuidGen(m_engine) {}
 
-Str RandomEngine::uuid() { return uuids::to_string(m_uuidGen()); }
+Str RandomEngine::uuid() {
+    std::lock_guard lock{m_mutex};
+    return uuids::to_string(m_uuidGen());
+}
 
 WithUuid::WithUuid() : m_uuid(RandomEngine::get().uuid()) {}
 

@@ -4,18 +4,39 @@
 
 namespace kc {
 
-SignalHandler::SignalHandler() {
+SignalHandler::SignalHandler() : m_owner(pthread_self()) {
     sigemptyset(&m_sigset);
     sigaddset(&m_sigset, SIGINT);
     sigaddset(&m_sigset, SIGTERM);
 
-    pthread_sigmask(SIG_BLOCK, &m_sigset, nullptr);
+    if (const auto error = pthread_sigmask(SIG_BLOCK, &m_sigset, &m_previous)) {
+        throw std::system_error(
+            error, std::generic_category(), "Block signals"
+        );
+    }
+}
+
+SignalHandler::~SignalHandler() {
+    log::expect(
+        pthread_equal(m_owner, pthread_self()),
+        "SignalHandler destroyed on another thread"
+    );
+    const auto error = pthread_sigmask(SIG_SETMASK, &m_previous, nullptr);
+    log::expect(error == 0, "Could not restore signal mask: {}", error);
 }
 
 void SignalHandler::waitImpl(MoveOnlyFunction<SignalAction(Signal)> callback) {
+    log::expect(
+        pthread_equal(m_owner, pthread_self()),
+        "SignalHandler waited on another thread"
+    );
     for (;;) {
         i32 posixSignal = 0;
-        sigwait(&m_sigset, &posixSignal);
+        if (const auto error = sigwait(&m_sigset, &posixSignal)) {
+            throw std::system_error(
+                error, std::generic_category(), "Wait for signal"
+            );
+        }
 
         if (auto signal = fromPosix(posixSignal); signal) {
             if (callback(*signal) == SignalAction::stop) {

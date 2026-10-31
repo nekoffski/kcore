@@ -9,13 +9,11 @@
 
 namespace kc {
 
-class Thread : public NonCopyable {
+// Stop and join before derived state is destroyed.
+class Thread : public NonCopyable, public NonMovable {
    public:
     explicit Thread(const Str& ident);
     virtual ~Thread();
-
-    Thread(Thread&& other) noexcept;
-    Thread& operator=(Thread&& other) noexcept;
 
     void start();
     void join();

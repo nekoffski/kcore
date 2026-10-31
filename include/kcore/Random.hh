@@ -4,6 +4,7 @@
 
 #include <kcore/Core.hh>
 #include <kcore/Singleton.hh>
+#include <mutex>
 #include <random>
 
 namespace kc {
@@ -15,6 +16,7 @@ class RandomEngine : public Singleton<RandomEngine> {
     Str uuid();
 
    private:
+    std::mutex m_mutex;
     std::mt19937 m_engine;
     uuids::uuid_random_generator m_uuidGen;
 };

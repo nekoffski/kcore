@@ -6,6 +6,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 
 namespace kc {
 
@@ -16,14 +17,33 @@ inline Opt<T> getEnv(const std::string& env) {
         try {
             if constexpr (std::is_same_v<T, std::string>) {
                 return std::string{value};
-            } else if constexpr (std::is_same_v<T, u64>) {
-                return std::stoul(value);
-            } else if constexpr (std::is_same_v<T, i64>) {
-                return std::stol(value);
-            } else if constexpr (std::is_same_v<T, f32>) {
-                return std::stof(value);
-            } else if constexpr (std::is_same_v<T, f64>) {
-                return std::stod(value);
+            } else {
+                const std::string_view input{value};
+                constexpr auto whitespace = " \t\n\r\f\v";
+                const auto first = input.find_first_not_of(whitespace);
+                if (first == std::string_view::npos) {
+                    return {};
+                }
+                const std::string text{input.substr(
+                    first, input.find_last_not_of(whitespace) - first + 1
+                )};
+                std::size_t consumed = 0;
+                T result;
+                if constexpr (std::is_same_v<T, u64>) {
+                    if (text.front() == '-') {
+                        return {};
+                    }
+                    result = std::stoull(text, &consumed);
+                } else if constexpr (std::is_same_v<T, i64>) {
+                    result = std::stoll(text, &consumed);
+                } else if constexpr (std::is_same_v<T, f32>) {
+                    result = std::stof(text, &consumed);
+                } else {
+                    result = std::stod(text, &consumed);
+                }
+                if (consumed == text.size()) {
+                    return result;
+                }
             }
         } catch ([[maybe_unused]] const std::logic_error&) {
             return {};

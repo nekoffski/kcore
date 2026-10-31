@@ -1,3 +1,6 @@
+#include <barrier>
+#include <thread>
+
 #include "LogCapture.hh"
 #include "TestSupport.hh"
 
@@ -64,6 +67,24 @@ TEST(LogDeathTest, FailedExpectAndPanicAbort) {
     log::expect(true, "fine");
     EXPECT_DEATH(log::expect(false, "failed"), "");
     EXPECT_DEATH(log::panic("panic"), "");
+}
+
+TEST(Log, LevelReadsAndUpdatesCanRunConcurrently) {
+    const auto original = log::level();
+    std::barrier start{2};
+    std::thread reader{[&] {
+        start.arrive_and_wait();
+        for (int i = 0; i < 1000; ++i) {
+            (void)log::level();
+        }
+    }};
+    start.arrive_and_wait();
+    for (int i = 0; i < 1000; ++i) {
+        log::setLogLevel(i % 2 ? log::Level::warn : log::Level::error);
+    }
+    reader.join();
+    log::setLogLevel(original);
+    EXPECT_EQ(log::level(), original);
 }
 
 }  // namespace kc::test

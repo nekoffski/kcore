@@ -1,11 +1,11 @@
 find_package(GTest CONFIG REQUIRED)
 add_executable(kcore-tests
     CoreTest.cpp EnumTest.cpp ErrorTest.cpp FunctionalTest.cpp HandleTest.cpp
-    IdTest.cpp LogTest.cpp ProfilerTest.cpp RandomTest.cpp RefTest.cpp
+    IdAllocatorTest.cpp LogTest.cpp ProfilerTest.cpp RandomTest.cpp RefTest.cpp
     SingletonTest.cpp StringTest.cpp TimeTest.cpp UnwrapTest.cpp
     containers/ContainersTest.cpp
     io/EnvTest.cpp io/FileSystemTest.cpp
-    runtime/RuntimeTest.cpp runtime/SyncTest.cpp
+    runtime/ThreadSafeQueueTest.cpp runtime/ThreadTest.cpp runtime/SignalHandlerTest.cpp runtime/SyncTest.cpp
     serialization/JsonTest.cpp serialization/YamlTest.cpp
 )
 target_include_directories(kcore-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

@@ -170,4 +170,49 @@ TEST(Functional, ConvertsFilteredRangesAndVisitsVariants) {
     );
 }
 
+struct ReturnValue {
+    int operator()() const { return 42; }
+};
+struct ReturnReference {
+    int value = 42;
+    int& operator()() { return value; }
+};
+static_assert(
+    not std::is_constructible_v<MoveOnlyFunction<const int&()>, ReturnValue>
+);
+static_assert(
+    std::is_constructible_v<MoveOnlyFunction<const int&()>, ReturnReference>
+);
+
+TEST(MoveOnlyFunction, PreservesReferencesAndRecognizesTypedNullCallbacks) {
+    int value = 42;
+    MoveOnlyFunction<const int&()> reference{[&]() -> int& { return value; }};
+    EXPECT_EQ(&reference(), &value);
+    int (*pointer)() = nullptr;
+    MoveOnlyFunction<int()> function{pointer};
+    EXPECT_FALSE(function);
+    function = [] { return 1; };
+    function = pointer;
+    EXPECT_FALSE(function);
+    struct Object {
+        int run() { return 1; }
+    };
+    int (Object::*member)() = nullptr;
+    MoveOnlyFunction<int(Object&)> method{member};
+    EXPECT_FALSE(method);
+}
+
+TEST(Functional, CopiesLvaluesAndSupportsMutableAndMoveOnlyCallbacks) {
+    auto callback = [value = 0]() mutable { return ++value; };
+    const auto lazy = lazyEvaluate(callback);
+    EXPECT_EQ(int(lazy), 1);
+    EXPECT_EQ(int(lazy), 2);
+    EXPECT_EQ(callback(), 1);
+    auto owned = lazyEvaluate([value = std::make_unique<int>(7)]() mutable {
+        return ++*value;
+    });
+    EXPECT_EQ(int(owned), 8);
+    EXPECT_EQ(int(owned), 9);
+}
+
 }  // namespace kc::test

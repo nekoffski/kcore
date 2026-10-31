@@ -20,4 +20,6 @@ TEST(UnwrapDeathTest, AbortsOnError) {
     );
 }
 
+TEST(Unwrap, AcceptsSuccessfulVoidResults) { unwrap(Result<void>{}); }
+
 }  // namespace kc::test

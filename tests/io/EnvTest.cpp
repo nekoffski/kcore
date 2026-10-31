@@ -45,4 +45,20 @@ TEST(Env, ConvertsStringsIntegersAndFloatingPointValues) {
     EXPECT_EQ(getEnv<i64>("KCORE_TEST_ENV"), -42);
 }
 
+TEST(Env, RejectsPartialNumbersAndUnsignedNegatives) {
+    for (auto* value : {"42junk", "1.5junk", "", "  "}) {
+        ScopedEnv env{"KCORE_AUDIT_ENV", value};
+        EXPECT_FALSE(getEnv<u64>("KCORE_AUDIT_ENV"));
+        EXPECT_FALSE(getEnv<i64>("KCORE_AUDIT_ENV"));
+        EXPECT_FALSE(getEnv<f32>("KCORE_AUDIT_ENV"));
+        EXPECT_FALSE(getEnv<f64>("KCORE_AUDIT_ENV"));
+    }
+    ScopedEnv negative{"KCORE_AUDIT_ENV", " -1 "};
+    EXPECT_FALSE(getEnv<u64>("KCORE_AUDIT_ENV"));
+    EXPECT_EQ(getEnv<i64>("KCORE_AUDIT_ENV"), -1);
+    ScopedEnv spaced{"KCORE_AUDIT_ENV", " \t+42\n"};
+    EXPECT_EQ(getEnv<u64>("KCORE_AUDIT_ENV"), 42);
+    EXPECT_EQ(getEnv<f64>("KCORE_AUDIT_ENV"), 42.0);
+}
+
 }  // namespace kc::test

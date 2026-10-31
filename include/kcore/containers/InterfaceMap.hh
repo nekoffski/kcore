@@ -4,10 +4,12 @@
 #include <kcore/Core.hh>
 #include <kcore/containers/FlatMap.hh>
 #include <memory>
+#include <type_traits>
 
 namespace kc {
 
 template <typename Key, typename Interface>
+    requires std::has_virtual_destructor_v<Interface>
 class InterfaceMap : public NonCopyable, public NonMovable {
    public:
     template <typename T, typename... Args>

@@ -22,4 +22,10 @@ TEST(Json, ParsesValidValuesAndReportsInvalidInput) {
     }
 }
 
+TEST(Json, NumericOverflowReturnsAnError) {
+    auto result = parseJson("1e1000");
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().code(), ErrorCode::jsonParsingError);
+}
+
 }  // namespace kc::test

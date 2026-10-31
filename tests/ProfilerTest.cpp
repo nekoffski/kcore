@@ -1,4 +1,6 @@
+#include <barrier>
 #include <kcore/Profiler.hh>
+#include <thread>
 
 #include "LogCapture.hh"
 #include "TestSupport.hh"
@@ -26,8 +28,12 @@ TEST(RegionTimer, EmitsPairedEventsIncludingNestedRegions) {
     }
 }
 
-TEST(Profiler, DisabledInstrumentationReportsItsState) {
+TEST(Profiler, ReportsTheConfiguredInstrumentationState) {
+#ifdef KCORE_ENABLE_PROFILING
+    EXPECT_TRUE(profilerEnabled());
+#else
     EXPECT_FALSE(profilerEnabled());
+#endif
 }
 
 using ProfilerTest = LogCapture;
@@ -78,6 +84,54 @@ TEST_F(
     profiler.generateSummary().print();
     EXPECT_THAT(output.str(), Not(HasSubstr("first")));
     EXPECT_THAT(output.str(), Not(HasSubstr("worker")));
+}
+
+TEST_F(ProfilerTest, RetainsOpenNestedRegionsUntilTheyAreComplete) {
+    Profiler profiler;
+    {
+        auto outer = profiler.profileRegion("retained outer");
+        {
+            auto inner = profiler.profileRegion("retained inner");
+            profiler.generateSummary().print();
+        }
+        profiler.generateSummary().print();
+        EXPECT_THAT(output.str(), Not(HasSubstr("retained outer")));
+        EXPECT_THAT(output.str(), Not(HasSubstr("retained inner")));
+    }
+    profiler.generateSummary().print();
+    EXPECT_THAT(output.str(), HasSubstr("retained outer"));
+    EXPECT_THAT(output.str(), HasSubstr("retained inner"));
+    output.str("");
+    profiler.generateSummary().print();
+    EXPECT_THAT(output.str(), Not(HasSubstr("retained")));
+}
+
+TEST_F(ProfilerTest, SnapshotsCanOverlapRecordingAndInstancesAreIndependent) {
+    Profiler first, second;
+    {
+        auto region = first.profileRegion("first instance");
+    }
+    {
+        auto region = second.profileRegion("second instance");
+    }
+    second.generateSummary().print();
+    EXPECT_THAT(output.str(), HasSubstr("second instance"));
+    EXPECT_THAT(output.str(), Not(HasSubstr("first instance")));
+    first.generateSummary().print();
+    EXPECT_THAT(output.str(), HasSubstr("first instance"));
+    std::barrier start{2};
+    std::thread worker{[&] {
+        start.arrive_and_wait();
+        for (int i = 0; i < 1000; ++i) {
+            auto region = first.profileRegion("concurrent");
+        }
+    }};
+    start.arrive_and_wait();
+    for (int i = 0; i < 100; ++i) {
+        (void)first.generateSummary();
+    }
+    worker.join();
+    (void)first.generateSummary();
 }
 
 }  // namespace kc::test

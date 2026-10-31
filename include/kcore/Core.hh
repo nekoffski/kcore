@@ -100,14 +100,18 @@ class Tag<Str> : public Wrapper<Str> {
 
 template <typename T>
 struct std::hash<kc::Wrapper<T>> {
-    std::size_t operator()(const kc::Wrapper<T>& v) const noexcept {
+    std::size_t operator()(const kc::Wrapper<T>& v) const noexcept(
+        noexcept(std::hash<T>{}(v.get()))
+    ) {
         return std::hash<T>{}(v.get());
     }
 };
 
 template <typename T>
 struct std::hash<kc::Tag<T>> {
-    std::size_t operator()(const kc::Tag<T>& v) const noexcept {
+    std::size_t operator()(const kc::Tag<T>& v) const noexcept(
+        noexcept(std::hash<T>{}(v.get()))
+    ) {
         return std::hash<T>{}(v.get());
     }
 };

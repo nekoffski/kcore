@@ -1,5 +1,7 @@
 #pragma once
 
+#include <pthread.h>
+
 #include <csignal>
 #include <kcore/Concepts.hh>
 #include <kcore/Core.hh>
@@ -14,7 +16,9 @@ enum class SignalAction { waitForNext, stop };
 
 class SignalHandler : public NonCopyable, public NonMovable {
    public:
+    // Construct before workers; wait and destroy on the constructing thread.
     SignalHandler();
+    ~SignalHandler();
 
     template <typename Callback>
         requires Callable<Callback, SignalAction(Signal)>
@@ -26,6 +30,8 @@ class SignalHandler : public NonCopyable, public NonMovable {
     void waitImpl(MoveOnlyFunction<SignalAction(Signal)>);
 
     sigset_t m_sigset;
+    sigset_t m_previous;
+    pthread_t m_owner;
 };
 
 Result<Signal> fromPosix(i32 posixSignal);

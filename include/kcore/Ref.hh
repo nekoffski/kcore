@@ -22,7 +22,7 @@ class Ref {
     explicit Ref(Args&&... args)
         : m_controlBlock(new ControlBlock{std::forward<Args>(args)...}) {}
 
-    ~Ref() {
+    virtual ~Ref() {
         if (m_controlBlock && m_controlBlock->refCounter.fetch_sub(1) == 1) {
             delete m_controlBlock;
         }
@@ -34,7 +34,7 @@ class Ref {
         }
     }
 
-    Ref(Ref&& other)
+    Ref(Ref&& other) noexcept
         : m_controlBlock(std::exchange(other.m_controlBlock, nullptr)) {}
 
     Ref& operator=(const Ref& other) = delete;

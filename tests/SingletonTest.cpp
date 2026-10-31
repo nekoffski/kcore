@@ -31,4 +31,19 @@ TEST(UniqueInstanceDeathTest, AccessBeforeConstructionAborts) {
     EXPECT_DEATH(Instance::instance(), "");
 }
 
+TEST(UniqueInstanceDeathTest, ClearsRegistrationAndAllowsReplacement) {
+    struct Instance : UniqueInstance<Instance> {
+        using UniqueInstance::instance;
+    };
+    {
+        Instance first;
+        EXPECT_EQ(&Instance::instance(), &first);
+    }
+    EXPECT_DEATH(Instance::instance(), "");
+    {
+        Instance second;
+        EXPECT_EQ(&Instance::instance(), &second);
+    }
+}
+
 }  // namespace kc::test

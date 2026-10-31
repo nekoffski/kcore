@@ -24,6 +24,18 @@ Result<void> pipeline(Steps&&... steps) {
 template <typename Signature>
 class MoveOnlyFunction;
 
+namespace details {
+template <typename R, typename F, typename... Args>
+concept SafeInvocable =
+    std::is_invocable_r_v<R, F, Args...> &&
+    (not std::is_reference_v<R> ||
+     (std::is_reference_v<std::invoke_result_t<F, Args...>> &&
+      std::is_convertible_v<
+          std::add_pointer_t<
+              std::remove_reference_t<std::invoke_result_t<F, Args...>>>,
+          std::add_pointer_t<std::remove_reference_t<R>>>));
+}  // namespace details
+
 template <typename ReturnType, typename... ArgumentTypes>
 class MoveOnlyFunction<ReturnType(ArgumentTypes...)> {
    private:
@@ -60,16 +72,23 @@ class MoveOnlyFunction<ReturnType(ArgumentTypes...)> {
     template <typename Callable>
         requires(
             not std::same_as<std::remove_cvref_t<Callable>, MoveOnlyFunction> &&
-            std::is_invocable_r_v<
+            details::SafeInvocable<
                 ReturnType, std::decay_t<Callable>&, ArgumentTypes...> &&
             std::is_constructible_v<std::decay_t<Callable>, Callable &&>
         )
-    MoveOnlyFunction(Callable&& callable)
-        : m_callable(
-              std::make_unique<CallableModel<std::decay_t<Callable>>>(
-                  std::forward<Callable>(callable)
-              )
-          ) {}
+    MoveOnlyFunction(Callable&& callable) {
+        if constexpr (
+            std::is_pointer_v<std::decay_t<Callable>> ||
+            std::is_member_pointer_v<std::decay_t<Callable>>
+        ) {
+            if (callable == nullptr) {
+                return;
+            }
+        }
+        m_callable = std::make_unique<CallableModel<std::decay_t<Callable>>>(
+            std::forward<Callable>(callable)
+        );
+    }
 
     MoveOnlyFunction(const MoveOnlyFunction&) = delete;
     MoveOnlyFunction& operator=(const MoveOnlyFunction&) = delete;
@@ -84,7 +103,7 @@ class MoveOnlyFunction<ReturnType(ArgumentTypes...)> {
     template <typename Callable>
         requires(
             not std::same_as<std::remove_cvref_t<Callable>, MoveOnlyFunction> &&
-            std::is_invocable_r_v<
+            details::SafeInvocable<
                 ReturnType, std::decay_t<Callable>&, ArgumentTypes...> &&
             std::is_constructible_v<std::decay_t<Callable>, Callable &&>
         )
@@ -177,28 +196,28 @@ constexpr DeferCall operator+(
 }  // namespace details
 
 template <typename F>
-    requires std::is_invocable_v<F>
+    requires std::is_invocable_v<F&>
 class LazyEvaluator {
-    using Result = decltype(std::declval<const F>()());
+    using Result = std::invoke_result_t<F&>;
 
    public:
-    explicit LazyEvaluator(F&& evaluable) : m_evaluable(std::move(evaluable)) {}
+    explicit LazyEvaluator(F evaluable) : m_evaluable(std::move(evaluable)) {}
 
-    constexpr operator Result() const { return m_evaluable(); }
+    constexpr operator Result() const { return std::invoke(m_evaluable); }
 
     template <typename T>
         requires(std::is_constructible_v<T, Result>)
     constexpr operator T() const {
-        return T{m_evaluable()};
+        return T(std::invoke(m_evaluable));
     }
 
    private:
-    F m_evaluable;
+    mutable F m_evaluable;
 };
 
 template <typename F>
 constexpr auto lazyEvaluate(F&& f) {
-    return LazyEvaluator{std::forward<F>(f)};
+    return LazyEvaluator<std::decay_t<F>>{std::forward<F>(f)};
 }
 
 #define KCORE_LAZY_EVALUATE(expr) ::kc::lazyEvaluate([&]() { return (expr); })

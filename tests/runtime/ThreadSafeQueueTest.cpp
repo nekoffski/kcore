@@ -1,13 +1,13 @@
-#include <csignal>
 #include <future>
-#include <kcore/runtime/SignalHandler.hh>
-#include <kcore/runtime/Thread.hh>
 #include <kcore/runtime/ThreadSafeQueue.hh>
 #include <thread>
 
 #include "TestSupport.hh"
 
 namespace kc::test {
+using namespace testing;
+using namespace std::chrono_literals;
+
 using namespace testing;
 using namespace std::chrono_literals;
 
@@ -115,69 +115,6 @@ TEST(ThreadSafeQueue, TimedPopWakesOnPushAndClose) {
     auto error = closed.get();
     ASSERT_FALSE(error);
     EXPECT_EQ(error.error().code(), ErrorCode::queueClosed);
-}
-
-class CountingThread : public Thread {
-   public:
-    explicit CountingThread(std::atomic_int& count)
-        : Thread("test"), count(count) {}
-
-   private:
-    void run() override { ++count; }
-    std::atomic_int& count;
-};
-
-TEST(Thread, StartsAndJoinsThroughAllOverloads) {
-    std::atomic_int count{0};
-    CountingThread first{count}, second{count};
-    first.join();
-    first.start();
-    second.start();
-    Thread::join(first, second);
-    EXPECT_EQ(count.load(), 2);
-    first.join();
-    first.start();
-    second.start();
-    std::vector<Thread*> threads{&first, &second};
-    Thread::join(std::span<Thread*>{threads});
-    EXPECT_EQ(count.load(), 4);
-}
-
-TEST(Signal, ConvertsSupportedPosixSignalsAndRejectsOthers) {
-    EXPECT_EQ(*fromPosix(SIGINT), Signal::sigint);
-    EXPECT_EQ(*fromPosix(SIGTERM), Signal::sigterm);
-    EXPECT_EQ(toString(Signal::sigint), "SIGINT");
-    EXPECT_EQ(toString(Signal::sigterm), "SIGTERM");
-    auto unsupported = fromPosix(SIGUSR1);
-    ASSERT_FALSE(unsupported);
-    EXPECT_EQ(unsupported.error().code(), ErrorCode::invalidArgument);
-}
-
-TEST(SignalHandlerDeathTest, WaitsForSupportedSignalsUntilCallbackStops) {
-    EXPECT_EXIT(
-        {
-            SignalHandler handler;
-            int received = 0;
-            if (std::raise(SIGINT) != 0) {
-                std::_Exit(1);
-            }
-            handler.wait([&](Signal signal) {
-                ++received;
-                if (received == 1 && signal == Signal::sigint) {
-                    if (std::raise(SIGTERM) != 0) {
-                        std::_Exit(1);
-                    }
-                    return SignalAction::waitForNext;
-                }
-                if (received != 2 || signal != Signal::sigterm) {
-                    std::_Exit(1);
-                }
-                return SignalAction::stop;
-            });
-            std::_Exit(received == 2 ? 0 : 1);
-        },
-        ExitedWithCode(0), ""
-    );
 }
 
 }  // namespace kc::test

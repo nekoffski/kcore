@@ -5,7 +5,9 @@
 #include <kcore/Singleton.hh>
 #include <kcore/Time.hh>
 #include <map>
+#include <memory>
 #include <mutex>
+#include <thread>
 #include <unordered_map>
 
 namespace kc {
@@ -22,14 +24,28 @@ using ProfilerEvents = std::vector<ProfilerEvent>;
 using ProfilerEventsPerThread =
     std::unordered_map<std::thread::id, ProfilerEvents>;
 
+namespace details {
+struct ProfilerBuffer {
+    std::mutex mutex;
+    ProfilerEvents events;
+};
+}  // namespace details
+
 class RegionTimer : public NonCopyable, public NonMovable {
    public:
     explicit RegionTimer(std::string name, ProfilerEvents& events);
     ~RegionTimer();
 
    private:
+    friend class Profiler;
+    RegionTimer(
+        std::string name, std::shared_ptr<details::ProfilerBuffer> buffer
+    );
+    void record(ProfilerEvent::Type type);
+
     std::string m_name;
-    ProfilerEvents& m_events;
+    std::shared_ptr<details::ProfilerBuffer> m_buffer;
+    ProfilerEvents* m_events;
 };
 
 class ProfilerSummary {
@@ -37,7 +53,6 @@ class ProfilerSummary {
         std::string name;
         std::vector<u64> times;
         std::map<std::string, SummaryGraphNode> children;
-        SummaryGraphNode* parent{nullptr};
         u64 insertionIndex{0};
         u64 nextChildIndex{0};
     };
@@ -46,8 +61,6 @@ class ProfilerSummary {
         u64 count{0};
         f64 totalTime{0.0};    // nanoseconds
         f64 averageTime{0.0};  // nanoseconds
-        std::string name;
-        std::string fullName;
     };
 
    public:
@@ -62,21 +75,7 @@ class ProfilerSummary {
         const SummaryGraphNode& node, const std::string& prefix = {}
     ) const;
 
-    static CallStatistics computeStats(
-        const SummaryGraphNode& node, const std::string& fullName
-    );
-
-    void forEachNode(
-        const std::function<void(const CallStatistics&, u64, std::thread::id)>&
-            fn
-    ) const;
-
-    void forEachNodeImpl(
-        const SummaryGraphNode& node, const std::string& parentName,
-        const std::function<void(const CallStatistics&, u64, std::thread::id)>&
-            fn,
-        u64 indent, std::thread::id threadId
-    ) const;
+    static CallStatistics computeStats(const SummaryGraphNode& node);
 
     std::unordered_map<std::thread::id, SummaryGraphNode> m_summaryGraphs;
 };
@@ -89,12 +88,12 @@ class Profiler : public Singleton<Profiler> {
     [[nodiscard]] ProfilerSummary generateSummary();
 
    private:
-    ProfilerEvents& threadEvents();
-    void clear();
+    std::shared_ptr<details::ProfilerBuffer> threadEvents();
 
     std::mutex m_mutex;
-    ProfilerEventsPerThread m_threads;
-    thread_local static ProfilerEvents* s_threadEvents;
+    std::unordered_map<
+        std::thread::id, std::shared_ptr<details::ProfilerBuffer>>
+        m_threads;
 };
 
 }  // namespace kc

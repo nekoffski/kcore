@@ -316,4 +316,19 @@ TEST_F(
     EXPECT_FALSE(fs.equivalent(path("file"), path("missing")));
 }
 
+TEST_F(FileSystemTest, StreamReadErrorsCannotBecomeSuccessfulEmptyFiles) {
+    struct UnknownType : FileSystem {
+        bool isDirectory(const Path&) const override { return false; }
+    } filesystem;
+    const auto error = filesystem.readFile(root);
+    ASSERT_FALSE(error);
+    EXPECT_EQ(error.error().code(), ErrorCode::fileSystemError);
+    EXPECT_FALSE(filesystem.readLines(root));
+    ASSERT_TRUE(fs.writeFile(path("empty"), ""));
+    EXPECT_EQ(fs.readFile(path("empty"))->size(), 0);
+    const Str large(25'000, 'x');
+    ASSERT_TRUE(fs.writeFile(path("large"), large));
+    EXPECT_EQ(*fs.readFile(path("large")), large);
+}
+
 }  // namespace kc::test

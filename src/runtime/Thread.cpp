@@ -7,19 +7,7 @@ namespace kc {
 
 Thread::Thread(const Str& ident) : m_ident(ident) {}
 
-Thread::~Thread() { join(); }
-
-Thread::Thread(Thread&& other) noexcept
-    : m_ident(std::move(other.m_ident)), m_thread(std::move(other.m_thread)) {}
-
-Thread& Thread::operator=(Thread&& other) noexcept {
-    if (this != &other) {
-        join();
-        m_ident = std::move(other.m_ident);
-        m_thread = std::move(other.m_thread);
-    }
-    return *this;
-}
+Thread::~Thread() = default;
 
 void Thread::join() {
     if (m_thread.joinable()) {
@@ -38,6 +26,10 @@ void Thread::sleepFor(std::chrono::milliseconds duration) {
 }
 
 void Thread::start() {
+    log::expect(
+        not m_thread.joinable(),
+        "Join the previous thread before starting again"
+    );
     m_thread = std::thread([&] { go(); });
 }
 

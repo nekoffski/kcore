@@ -5,7 +5,7 @@ namespace kc {
 Result<Json> parseJson(const Str& str) {
     try {
         return Json::parse(str);
-    } catch (const Json::parse_error& e) {
+    } catch (const Json::exception& e) {
         return Error::unexpected(
             ErrorCode::jsonParsingError, "Could not parse json: {}", e.what()
         );
