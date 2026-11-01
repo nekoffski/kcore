@@ -15,6 +15,7 @@ enum class ErrorCode {
     invalidArgument = 7,
     jsonParsingError = 8,
     fileNotFound = 9,
+    threadPoolClosed = 10,
 };
 
 const std::error_category& errorCategory() noexcept;

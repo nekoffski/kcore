@@ -5,6 +5,7 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
 option(KCORE_BUILD_TESTS "Build kcore tests" ${PROJECT_IS_TOP_LEVEL})
+option(KCORE_BUILD_SANDBOX "Build the sandbox" OFF)
 option(KCORE_ENABLE_PROFILING "Enable profiling instrumentation" OFF)
 
 find_package(fmt CONFIG REQUIRED)
@@ -16,21 +17,21 @@ find_package(p-ranav-glob CONFIG REQUIRED)
 find_package(Threads REQUIRED)
 
 add_library(kcore STATIC
-    src/Core.cpp
-    src/Error.cpp
-    src/ErrorCode.cpp
-    src/Handle.cpp
-    src/IdAllocator.cpp
-    src/Log.cpp
-    src/Profiler.cpp
-    src/Random.cpp
-    src/String.cpp
-    src/io/FileSystem.cpp
-    src/runtime/SignalHandler.cpp
-    src/runtime/Thread.cpp
-    # src/runtime/ThreadPool.cpp
-    src/serialization/Json.cpp
-    src/serialization/Yaml.cpp
+    "src/Core.cpp"
+    "src/Error.cpp"
+    "src/ErrorCode.cpp"
+    "src/Handle.cpp"
+    "src/IdAllocator.cpp"
+    "src/Log.cpp"
+    "src/Profiler.cpp"
+    "src/Random.cpp"
+    "src/String.cpp"
+    "src/io/FileSystem.cpp"
+    "src/runtime/SignalHandler.cpp"
+    "src/runtime/Thread.cpp"
+    "src/runtime/ThreadPool.cpp"
+    "src/serialization/Json.cpp"
+    "src/serialization/Yaml.cpp"
 )
 add_library(kcore::kcore ALIAS kcore)
 target_compile_features(kcore PUBLIC cxx_std_23)
@@ -39,10 +40,16 @@ target_include_directories(kcore PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
-target_link_libraries(kcore PUBLIC
-    fmt::fmt spdlog::spdlog stduuid::stduuid nlohmann_json::nlohmann_json
-    yaml-cpp::yaml-cpp Threads::Threads
-    PRIVATE p-ranav-glob::p-ranav-glob
+target_link_libraries(kcore 
+    PUBLIC
+        fmt::fmt 
+        spdlog::spdlog 
+        stduuid::stduuid 
+        nlohmann_json::nlohmann_json
+        yaml-cpp::yaml-cpp 
+        Threads::Threads
+    PRIVATE 
+        p-ranav-glob::p-ranav-glob
 )
 if(KCORE_ENABLE_PROFILING)
     target_compile_definitions(kcore PUBLIC KCORE_ENABLE_PROFILING=1)
@@ -51,6 +58,10 @@ endif()
 if(KCORE_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+if(KCORE_BUILD_SANDBOX)
+    add_subdirectory(sandbox)
 endif()
 
 install(TARGETS kcore EXPORT kcoreTargets

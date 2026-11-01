@@ -25,18 +25,19 @@ target_link_libraries(your_target PRIVATE kcore::kcore)
 
 ## Build or package
 
-Use a Conan profile configured for a C++23 compiler and run:
+Requires Conan 2, CMake, Make, and a C++23 compiler. If you don't have a default
+Conan profile, create one with `conan profile detect`, then run:
 
 ```sh
-conan install . --build=missing -s compiler.cppstd=23 -s build_type=Debug
-cmake --preset conan-debug
-cmake --build --preset conan-debug
+make build
+make test
+make clean
 ```
 
-The generated preset name depends on your CMake generator. The Conan recipe
-disables tests for package builds. To run the standalone tests, configure with
-`cmake --preset conan-debug -DKCORE_BUILD_TESTS=ON`, build, then run
-`ctest --test-dir build/Debug --output-on-failure`.
+The Makefile installs dependencies and builds the library, tests, and sandbox
+in Debug mode. Use `BUILD_TYPE=Release` for Release builds,
+`CONAN_PROFILE=path/to/profile` for another Conan profile, or `JOBS=4` to set
+build parallelism.
 
 Enable profiling with `-DKCORE_ENABLE_PROFILING=ON` when configuring CMake.
 
@@ -50,3 +51,12 @@ A package consumer requires `kcore/0.1.0` in Conan, then uses
 `find_package(kcore CONFIG REQUIRED)` and links `kcore::kcore`. With a CMake
 installation, the same interface is available after `cmake --install` and
 setting `CMAKE_PREFIX_PATH` to the installation prefix.
+
+## Sandbox
+
+Build and run with:
+
+```sh
+make sandbox
+make sandbox BUILD_TYPE=Release
+```
