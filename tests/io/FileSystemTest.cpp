@@ -316,6 +316,59 @@ TEST_F(
     EXPECT_FALSE(fs.equivalent(path("file"), path("missing")));
 }
 
+TEST_F(
+    FileSystemTest, SetsPermissionsAndModificationTimesAndReportsMissingPaths
+) {
+    const auto file = path("file");
+    ASSERT_TRUE(fs.writeFile(file, "data"));
+    ASSERT_TRUE(fs.setPermissions(file, 0640));
+    const auto modified = std::chrono::sys_time<std::chrono::nanoseconds>{
+        std::chrono::nanoseconds{1'712'345'678'123'456'789}
+    };
+    ASSERT_TRUE(fs.setModifiedTime(file, modified));
+    auto info = fs.info(file);
+    ASSERT_TRUE(info);
+    EXPECT_EQ(info->permissions, 0640);
+    EXPECT_EQ(info->modified, modified);
+    const auto permissionsError = fs.setPermissions(path("missing"), 0600);
+    ASSERT_FALSE(permissionsError);
+    EXPECT_EQ(permissionsError.error().code(), ErrorCode::fileSystemError);
+    const auto timeError = fs.setModifiedTime(path("missing"), modified);
+    ASSERT_FALSE(timeError);
+    EXPECT_EQ(timeError.error().code(), ErrorCode::fileSystemError);
+}
+
+TEST_F(FileSystemTest, SetsSymlinkModificationTimeWithoutChangingItsTarget) {
+    const auto file = path("file");
+    ASSERT_TRUE(fs.writeFile(file, "data"));
+    const auto targetInfo = fs.info(file);
+    ASSERT_TRUE(targetInfo);
+    std::filesystem::create_symlink("file", path("link").str());
+    std::filesystem::create_symlink("missing", path("broken").str());
+    const auto modified = std::chrono::sys_time<std::chrono::nanoseconds>{
+        std::chrono::nanoseconds{1'712'345'678'123'456'789}
+    };
+    ASSERT_TRUE(fs.setModifiedTime(path("link"), modified));
+    ASSERT_TRUE(fs.setModifiedTime(path("broken"), modified));
+    EXPECT_EQ(fs.info(path("link"))->modified, modified);
+    EXPECT_EQ(fs.info(path("broken"))->modified, modified);
+    EXPECT_EQ(fs.info(file)->modified, targetInfo->modified);
+}
+
+TEST_F(FileSystemTest, RecursiveCopiesPreserveSymlinksIncludingBrokenTargets) {
+    ASSERT_TRUE(fs.createDirectory(path("source/nested")));
+    ASSERT_TRUE(fs.writeFile(path("source/nested/file"), "contents"));
+    std::filesystem::create_symlink("nested/file", path("source/link").str());
+    std::filesystem::create_symlink("missing", path("source/broken").str());
+    std::filesystem::create_directory_symlink(".", path("source/cycle").str());
+    ASSERT_TRUE(fs.copyRecursive(path("source"), path("copy")));
+    EXPECT_EQ(*fs.readFile(path("copy/nested/file")), "contents");
+    EXPECT_EQ(fs.info(path("copy/link"))->type, FileInfo::Type::symlink);
+    EXPECT_EQ(fs.info(path("copy/link"))->linkTarget, "nested/file");
+    EXPECT_EQ(fs.info(path("copy/broken"))->linkTarget, "missing");
+    EXPECT_EQ(fs.info(path("copy/cycle"))->linkTarget, ".");
+}
+
 TEST_F(FileSystemTest, StreamReadErrorsCannotBecomeSuccessfulEmptyFiles) {
     struct UnknownType : FileSystem {
         bool isDirectory(const Path&) const override { return false; }

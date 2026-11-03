@@ -86,6 +86,14 @@ class FileSystem : public NonCopyable, public NonMovable {
     ) const;
     virtual Result<u64> fileSize(const Path& path) const;
     virtual Result<FileInfo> info(const Path& path) const;
+    virtual Result<void> setPermissions(
+        const Path& path, u32 permissions
+    ) const;
+    // Updates the link itself when path is a symlink.
+    virtual Result<void> setModifiedTime(
+        const Path& path,
+        std::chrono::sys_time<std::chrono::nanoseconds> modified
+    ) const;
     virtual Result<bool> equivalent(
         const Path& first, const Path& second
     ) const;

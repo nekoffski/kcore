@@ -200,7 +200,10 @@ Result<void> FileSystem::copyDirectoryRecursive(
     const Path& from, const Path& to
 ) const {
     std::error_code ec;
-    fs::copy(from.str(), to.str(), fs::copy_options::recursive, ec);
+    fs::copy(
+        from.str(), to.str(),
+        fs::copy_options::recursive | fs::copy_options::copy_symlinks, ec
+    );
     if (ec) {
         return Error::unexpected(
             ErrorCode::fileSystemError,
@@ -296,6 +299,37 @@ Result<void> FileSystem::removeAll(const Path& path) const {
         return Error::unexpected(
             ErrorCode::fileSystemError, "Failed to remove all from '{}' - {}",
             path.str(), ec.message()
+        );
+    }
+    return {};
+}
+
+Result<void> FileSystem::setPermissions(
+    const Path& path, u32 permissions
+) const {
+    const auto changed = ::chmod(path.str().c_str(), permissions);
+    if (changed != 0) {
+        return Error::unexpected(
+            fileError("Could not set permissions for", path)
+        );
+    }
+    return {};
+}
+
+Result<void> FileSystem::setModifiedTime(
+    const Path& path, std::chrono::sys_time<std::chrono::nanoseconds> modified
+) const {
+    const auto seconds = std::chrono::floor<std::chrono::seconds>(modified);
+    const timespec times[2]{
+        {.tv_sec = 0, .tv_nsec = UTIME_OMIT},
+        {.tv_sec = static_cast<time_t>(seconds.time_since_epoch().count()),
+         .tv_nsec = static_cast<long>((modified - seconds).count())},
+    };
+    const auto changed =
+        ::utimensat(AT_FDCWD, path.str().c_str(), times, AT_SYMLINK_NOFOLLOW);
+    if (changed != 0) {
+        return Error::unexpected(
+            fileError("Could not set modification time for", path)
         );
     }
     return {};
