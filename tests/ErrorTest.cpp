@@ -49,4 +49,10 @@ TEST(Error, AcceptsStandardErrorCodesAndFormatsCategoryAndValue) {
     EXPECT_TRUE(error.valid());
 }
 
+TEST(Error, ThreadPoolClosedHasStableCodeAndMessage) {
+    const std::error_code code = ErrorCode::threadPoolClosed;
+    EXPECT_EQ(code.value(), 10);
+    EXPECT_EQ(code.message(), "Thread pool closed");
+}
+
 }  // namespace kc::test

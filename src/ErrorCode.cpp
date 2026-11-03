@@ -25,6 +25,8 @@ class ErrorCategory final : public std::error_category {
                 return "JSON parsing error";
             case ErrorCode::fileNotFound:
                 return "File not found";
+            case ErrorCode::threadPoolClosed:
+                return "Thread pool closed";
         }
         return "Unknown kcore error";
     }
