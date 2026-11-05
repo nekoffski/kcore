@@ -2,6 +2,10 @@
 
 namespace kc {
 
+bool isValidUuid(std::string_view value) noexcept {
+    return uuids::uuid::is_valid_uuid(value);
+}
+
 RandomEngine::RandomEngine()
     : m_engine(std::random_device{}()), m_uuidGen(m_engine) {}
 

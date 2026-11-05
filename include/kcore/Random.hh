@@ -6,8 +6,11 @@
 #include <kcore/Singleton.hh>
 #include <mutex>
 #include <random>
+#include <string_view>
 
 namespace kc {
+
+bool isValidUuid(std::string_view value) noexcept;
 
 class RandomEngine : public Singleton<RandomEngine> {
    public:

@@ -23,6 +23,16 @@ TEST(Random, GeneratesValidDistinctUuidsAndStableObjectIdentity) {
     EXPECT_EQ(&engine, &RandomEngine::get());
 }
 
+TEST(Random, ValidatesUuidStrings) {
+    EXPECT_TRUE(isValidUuid(RandomEngine::get().uuid()));
+    EXPECT_TRUE(isValidUuid("12345678-1234-4234-8234-123456789abc"));
+    for (const auto* value :
+         {"", "not-a-uuid", "12345678-1234-4234-8234-123456789ab",
+          "12345678-1234-4234-8234-123456789abz"}) {
+        EXPECT_FALSE(isValidUuid(value)) << value;
+    }
+}
+
 TEST(Random, ConcurrentUuidGenerationRemainsValidAndDistinct) {
     std::array<std::vector<Str>, 4> values;
     std::barrier start{4};
