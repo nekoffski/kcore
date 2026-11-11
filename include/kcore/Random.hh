@@ -11,6 +11,7 @@
 namespace kc {
 
 bool isValidUuid(std::string_view value) noexcept;
+Opt<Uuid> parseUuid(std::string_view value);
 
 class RandomEngine : public Singleton<RandomEngine> {
    public:

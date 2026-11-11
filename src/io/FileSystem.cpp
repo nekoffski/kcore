@@ -10,6 +10,7 @@
 #include <fstream>
 #include <glob/glob.hpp>
 #include <kcore/Functional.hh>
+#include <kcore/Random.hh>
 #include <kcore/String.hh>
 #include <kcore/io/Env.hh>
 #include <kcore/io/FileSystem.hh>
@@ -99,6 +100,11 @@ Result<std::unique_ptr<File>> FileSystem::openFile(
 Result<FileInfo> FileSystem::info(const Path& path) const {
     struct stat status{};
     if (::lstat(path.str().c_str(), &status) != 0) {
+        if (errno == ENOENT) {
+            return Error::unexpected(
+                ErrorCode::fileNotFound, "File not found: '{}'", path.str()
+            );
+        }
         return Error::unexpected(fileError("Could not stat", path));
     }
     auto type = FileInfo::Type::other;
@@ -168,6 +174,32 @@ bool FileSystem::isDirectory(const Path& path) const {
 bool FileSystem::exists(const Path& path) const {
     std::error_code ec;
     return fs::exists(path.str(), ec);
+}
+
+Result<void> FileSystem::createSymlink(
+    const Str& target, const Path& path
+) const {
+    std::error_code error;
+    fs::create_symlink(target, path.str(), error);
+    if (error) {
+        return Error::unexpected(
+            ErrorCode::fileSystemError, "Could not create symlink '{}': {}",
+            path.str(), error.message()
+        );
+    }
+    return {};
+}
+
+Result<void> FileSystem::rename(const Path& from, const Path& to) const {
+    std::error_code error;
+    fs::rename(from.str(), to.str(), error);
+    if (error) {
+        return Error::unexpected(
+            ErrorCode::fileSystemError, "Could not rename '{}' to '{}': {}",
+            from.str(), to.str(), error.message()
+        );
+    }
+    return {};
 }
 
 Result<void> FileSystem::copyRecursive(const Path& from, const Path& to) const {
@@ -394,6 +426,56 @@ Result<void> FileSystem::writeFile(const Path& path, const Str& content) const {
         );
     }
     return {};
+}
+
+Result<void> FileSystem::writeFileAtomic(
+    const Path& path, const Str& content
+) const {
+    const auto temporary = path + ("." + RandomEngine::get().uuid() + ".tmp");
+    const auto descriptor = ::open(
+        temporary.str().c_str(), O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600
+    );
+    if (descriptor < 0) {
+        return Error::unexpected(
+            fileError("Could not create temporary file for", path)
+        );
+    }
+    KCORE_DEFER {
+        std::error_code ignored;
+        fs::remove(temporary.str(), ignored);
+    };
+    NativeFile file{descriptor, temporary};
+    const auto bytes = std::span{
+        reinterpret_cast<const Byte*>(content.data()), content.size()
+    };
+    if (auto result = file.write(bytes); not result) {
+        return result;
+    }
+    const auto synced = ::fsync(descriptor);
+    if (synced != 0) {
+        return Error::unexpected(fileError("Could not sync", temporary));
+    }
+    if (auto result = file.close(); not result) {
+        return result;
+    }
+    const auto renamed = ::rename(temporary.str().c_str(), path.str().c_str());
+    if (renamed != 0) {
+        return Error::unexpected(fileError("Could not replace", path));
+    }
+    const auto parent = path.parent().str().empty() ? Path{"."} : path.parent();
+    const auto parentDescriptor =
+        ::open(parent.str().c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    if (parentDescriptor < 0) {
+        return Error::unexpected(
+            fileError("Could not open parent directory for", path)
+        );
+    }
+    NativeFile directory{parentDescriptor, parent};
+    const auto parentSynced = ::fsync(parentDescriptor);
+    if (parentSynced != 0) {
+        return Error::unexpected(fileError("Could not sync directory", parent));
+    }
+    return directory.close();
 }
 
 Result<Str> FileSystem::readFile(const Path& path) const {

@@ -24,6 +24,11 @@ TEST(Random, GeneratesValidDistinctUuidsAndStableObjectIdentity) {
 }
 
 TEST(Random, ValidatesUuidStrings) {
+    EXPECT_EQ(
+        parseUuid("{12345678-1234-4234-8234-123456789ABC}"),
+        "12345678-1234-4234-8234-123456789abc"
+    );
+    EXPECT_FALSE(parseUuid("bad"));
     EXPECT_TRUE(isValidUuid(RandomEngine::get().uuid()));
     EXPECT_TRUE(isValidUuid("12345678-1234-4234-8234-123456789abc"));
     for (const auto* value :

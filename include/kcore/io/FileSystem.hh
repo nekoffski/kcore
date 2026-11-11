@@ -79,6 +79,11 @@ class FileSystem : public NonCopyable, public NonMovable {
     virtual bool isDirectory(const Path& path) const;
     virtual bool exists(const Path& path) const;
 
+    virtual Result<void> createSymlink(
+        const Str& target, const Path& path
+    ) const;
+    virtual Result<void> rename(const Path& from, const Path& to) const;
+
     virtual Result<void> copyRecursive(const Path& from, const Path& to) const;
     virtual Result<void> copyFile(const Path& from, const Path& to) const;
     virtual Result<void> copyDirectoryRecursive(
@@ -113,6 +118,9 @@ class FileSystem : public NonCopyable, public NonMovable {
 
     virtual Result<void> appendFile(const Path& path, const Str& content) const;
     virtual Result<void> writeFile(const Path& path, const Str& content) const;
+    virtual Result<void> writeFileAtomic(
+        const Path& path, const Str& content
+    ) const;
     virtual Result<Str> readFile(const Path& path) const;
     virtual Result<std::vector<Str>> readLines(const Path& path) const;
     virtual Result<std::vector<Byte>> readBinary(const Path& path) const;

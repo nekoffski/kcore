@@ -6,6 +6,14 @@ bool isValidUuid(std::string_view value) noexcept {
     return uuids::uuid::is_valid_uuid(value);
 }
 
+Opt<Uuid> parseUuid(std::string_view value) {
+    const auto uuid = uuids::uuid::from_string(value);
+    if (not uuid) {
+        return {};
+    }
+    return uuids::to_string(*uuid);
+}
+
 RandomEngine::RandomEngine()
     : m_engine(std::random_device{}()), m_uuidGen(m_engine) {}
 

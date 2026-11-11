@@ -384,4 +384,59 @@ TEST_F(FileSystemTest, StreamReadErrorsCannotBecomeSuccessfulEmptyFiles) {
     EXPECT_EQ(*fs.readFile(path("large")), large);
 }
 
+TEST_F(FileSystemTest, AtomicWritesReplaceContentsAndCleanTemporaryFiles) {
+    const auto file = path("atomic.json");
+    ASSERT_TRUE(fs.writeFile(file, "old"));
+    ASSERT_TRUE(fs.writeFileAtomic(file, "new data"));
+    EXPECT_EQ(*fs.readFile(file), "new data");
+    EXPECT_EQ(fs.info(file)->permissions, 0600);
+    ASSERT_TRUE(fs.writeFileAtomic(file, ""));
+    EXPECT_TRUE(fs.readFile(file)->empty());
+    EXPECT_EQ(fs.listEntries(file.parent())->size(), 1);
+}
+
+TEST_F(
+    FileSystemTest, FailedAtomicRenamePreservesTargetAndRemovesTemporaryFile
+) {
+    const auto directory = path("directory");
+    ASSERT_TRUE(fs.createDirectory(directory));
+    ASSERT_TRUE(fs.writeFile(path("directory/data"), "original"));
+    EXPECT_FALSE(fs.writeFileAtomic(directory, "replace directory"));
+    EXPECT_EQ(*fs.readFile(path("directory/data")), "original");
+    EXPECT_EQ(fs.listEntries(root)->size(), 1);
+    EXPECT_FALSE(fs.writeFileAtomic(path("missing/file"), "data"));
+}
+
+TEST_F(FileSystemTest, MissingInfoIsDistinctFromOtherFilesystemErrors) {
+    auto missing = fs.info(path("missing"));
+    ASSERT_FALSE(missing);
+    EXPECT_EQ(missing.error().code(), ErrorCode::fileNotFound);
+    ASSERT_TRUE(fs.writeFile(path("file"), "data"));
+    auto invalidParent = fs.info(path("file/child"));
+    ASSERT_FALSE(invalidParent);
+    EXPECT_EQ(invalidParent.error().code(), ErrorCode::fileSystemError);
+}
+
+TEST_F(FileSystemTest, RenamesFilesAndDirectoriesAndReportsFailure) {
+    ASSERT_TRUE(fs.writeFile(path("source"), "data"));
+    ASSERT_TRUE(fs.rename(path("source"), path("destination")));
+    EXPECT_FALSE(fs.exists(path("source")));
+    EXPECT_EQ(*fs.readFile(path("destination")), "data");
+    ASSERT_TRUE(fs.createDirectory(path("directory")));
+    EXPECT_TRUE(fs.rename(path("directory"), path("renamed")));
+    EXPECT_TRUE(fs.isDirectory(path("renamed")));
+    auto failed = fs.rename(path("missing"), path("output"));
+    ASSERT_FALSE(failed);
+    EXPECT_EQ(failed.error().code(), ErrorCode::fileSystemError);
+}
+
+TEST_F(FileSystemTest, CreatesSymlinksWithOriginalTargetText) {
+    ASSERT_TRUE(fs.createSymlink("missing", path("link")));
+    const auto link = fs.info(path("link"));
+    ASSERT_TRUE(link);
+    EXPECT_EQ(link->type, FileInfo::Type::symlink);
+    EXPECT_EQ(link->linkTarget, "missing");
+    EXPECT_FALSE(fs.createSymlink("other", path("link")));
+}
+
 }  // namespace kc::test
