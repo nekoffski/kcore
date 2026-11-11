@@ -6,20 +6,13 @@
 #include <kcore/Error.hh>
 #include <kcore/Log.hh>
 #include <kcore/Macros.hh>
+#include <kcore/Pipeline.hh>
 #include <memory>
 #include <ranges>
 #include <type_traits>
 #include <utility>
 
 namespace kc {
-
-template <typename... Steps>
-    requires(std::same_as<std::invoke_result_t<Steps>, Result<void>> && ...)
-Result<void> pipeline(Steps&&... steps) {
-    Result<void> result;
-    ((result = std::move(result).and_then(std::forward<Steps>(steps))), ...);
-    return result;
-}
 
 template <typename Signature>
 class MoveOnlyFunction;

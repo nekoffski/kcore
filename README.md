@@ -23,6 +23,59 @@ target_link_libraries(your_target PRIVATE kcore::kcore)
 #include <kcore/io/FileSystem.hh>
 ```
 
+## Result pipelines
+
+`<kcore/Pipeline.hh>` provides an eager, synchronous chain over `kc::Result`.
+Pass the first callable to `startPipeline`; it executes immediately. Later
+success steps run in order until one fails. Callables are invoked directly
+and are not stored or type-erased.
+
+```cpp
+#include <kcore/Pipeline.hh>
+
+const auto load = []() -> kc::Result<int> { return 7; };
+const auto validate = [](int n) -> kc::Result<void> {
+    if (n < 0) {
+        return kc::Error::unexpected(kc::ErrorCode::invalidArgument, "Negative value");
+    }
+    return {};
+};
+const auto toText = [](int n) { return std::to_string(n); };
+
+auto result = kc::startPipeline(load)
+    .check(validate)
+    .transform(toText)
+    .result(); // Result<std::string>
+```
+
+| Method | Callable returns | Effect |
+|---|---|---|
+| `then` | `Result<U>` | Replace the value with U, or propagate failure |
+| `transform` | Ordinary U | Replace the value with U |
+| `check` | `Result<void>` | Borrow the value as `const T&`; retain it on success |
+| `inspect` | `void` | Observe `const T&` and retain the value |
+| `mapError` | `Error` | Transform an error; skip on success |
+| `recover` | `Result<T>` | Handle an error; skip on success |
+| `result` | No callable | Return the owned result |
+
+For `Result<void>`, success callables take no arguments. `then` returning
+`Result<void>`, or `transform` returning `void`, discards the previous value;
+use `check` to retain it instead.
+Recovery applies to every preceding error that reaches that stage. A failed
+recovery continues propagating its error; successful recovery resumes the chain.
+
+`then`, `transform`, `mapError`, and `recover` forward values/errors with the
+same lvalue, const, and rvalue categories as `std::expected`. Named lambdas can
+be passed without copying, including move-only lambdas. A temporary pipeline
+can transfer ownership to a callback; a named pipeline is not implicitly
+moved from. `check` and `inspect` copy the result from lvalue pipelines and
+move it from temporaries. `result()` likewise copies from lvalues and moves
+from temporaries, returning a value rather than a potentially dangling reference.
+
+The pipeline itself does not dynamically allocate. Retaining stages and
+extraction can move payloads; contained types and callbacks may allocate or
+throw. Exceptions propagate without being converted to `Error`.
+
 ## Build or package
 
 Requires Conan 2, CMake, Make, and a C++23 compiler. If you don't have a default

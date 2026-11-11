@@ -1,7 +1,7 @@
 find_package(GTest CONFIG REQUIRED)
 add_executable(kcore-tests
     CoreTest.cpp EnumTest.cpp ErrorTest.cpp FunctionalTest.cpp HandleTest.cpp
-    IdAllocatorTest.cpp LogTest.cpp ProfilerTest.cpp RandomTest.cpp RefTest.cpp
+    IdAllocatorTest.cpp LogTest.cpp PipelineTest.cpp ProfilerTest.cpp RandomTest.cpp RefTest.cpp
     SingletonTest.cpp StringTest.cpp TimeTest.cpp UnwrapTest.cpp
     containers/ContainersTest.cpp
     io/EnvTest.cpp io/FileSystemTest.cpp
